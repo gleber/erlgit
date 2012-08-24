@@ -206,7 +206,7 @@ get_reachable_tags(Repo, Tags) ->
 
 get_reachable_tags(Repo, Tags, Commits) ->
     TagCommits = lists:zip(Tags, get_commits(Repo, Tags)),
-    [ T || {T,C} <- TagCommits, lists:member(C, Commits) ].
+    [ T || {T,{_, C}} <- TagCommits, lists:member(C, Commits) ].
 
 
 diff_names(Repo, A, B, Prefix) when is_list(A),
