@@ -1,23 +1,32 @@
 -module(git).
 
--export([is_repo_dirty/0,
-         changed_files/0,
-         log_commits/0,
-         describe/0, semver/0,
-         head/0,
+-export([clone/2,
+         fetch/1,
+         checkout/2,
 
-         get_all_version_tags/0, get_all_version_tags_commits/0,
-         get_reachable_versions/0,
+         status_is_dirty/1,
+         status_changed_files/1,
+         log_commits/1,
+         describe/1, semver/1,
+         head/1,
 
-         diff/2,
+         get_all_version_tags/1, get_all_version_tags_commits/1,
+         get_reachable_versions/1,
 
-         add_files/1,
-         commit/1, amend_changes/0,
-         tag/1,
-         reset_hard/1
+         diff_names/3,
+
+         remote_branches/1,
+         add_files/2,
+         commit/2, amend_changes/1,
+         tag/2,
+         reset_hard/2
         ]).
 
--import(git_utils, [exec/1, exec/2, exec/3, strip/1, join/2]).
+-export([clone_cmd/2,
+         fetch_cmd/1,
+         checkout_cmd/2]).
+
+-import(git_utils, [fformat/2, strip/1, join/2]).
 
 -include_lib("erlsemver/include/semver.hrl").
 
@@ -27,64 +36,98 @@
 %%
 %% =============================================================================
 
-is_repo_dirty() ->
-    case exec("git status --porcelain | egrep -v \"^\\?\\?\"", [], true) of
+%% @throws {unable_to_clone, Reason :: list()}>
+-spec clone(list(), list()) -> ok.
+clone(RepoURL, RepoPath) ->
+    %% sh(fformat("rm -rf \"~s\"", [RepoPath])), % dirty hack
+    sh(clone_cmd(RepoURL, RepoPath), []).
+
+clone_cmd(RepoURL, RepoPath) ->
+    fformat("git clone \"~s\" \"~s\"", [RepoURL, RepoPath]).
+
+%% @doc Fetches recent changes from repo.
+%% @throws {unable_to_checkout, Reason}
+-spec fetch(list()) -> ok.
+fetch(RepoDir) ->
+    sh(fetch_cmd(RepoDir), [{cd, RepoDir}]).
+
+fetch_cmd(_RepoDir) ->
+    "git fetch".
+
+%% @doc Tries to checkout to given commit.
+%% @throws {unable_to_checkout, Reason}
+-spec checkout(list(), perforator_ci_types:commit_id()) -> ok.
+checkout(RepoDir, CommitID) ->
+    sh(checkout_cmd(RepoDir, CommitID), [{cd, RepoDir}]).
+
+checkout_cmd(_RepoDir, CommitID) ->
+    fformat("git checkout -f ~s", [CommitID]).
+
+-spec remote_branches(list()) -> ok.
+remote_branches(Repo) ->
+    sh(remote_branches_cmd(Repo), []).
+
+remote_branches_cmd(Repo) ->
+    fformat("git ls-remote ~s", [Repo]).
+
+status_is_dirty(Repo) ->
+    case sh("git status --porcelain | egrep -v \"^\\?\\?\"", [{cd, Repo}]) of
         "" ->
             false;
         _ ->
             true
     end.
 
-changed_files() ->
-    changed_files(".").
+status_changed_files(Repo) ->
+    status_changed_files(Repo, ".").
 
-add_files(Files) ->
-    add_files(Files, ".").
-
-
-get_all_version_tags() ->
-    lists:sort([ semver:from_str(V) || [$v | V ] <- string:tokens(os:cmd("git tag"), "\n") ]).
-
-get_all_version_tags_commits() ->
-    get_tags_commits(get_all_version_tags()).
-
-get_reachable_versions() ->
-    Tags = get_all_version_tags(),
-    get_reachable_tags(Tags).
+add_files(Repo, Files) ->
+    add_files(Repo, Files, ".").
 
 
-commit(Msg) ->
-    exec("git commit -m \"~s\"", [Msg]).
+get_all_version_tags(Repo) ->
+    lists:sort([ semver:from_str(V) || [$v | V ] <- string:tokens(oksh("git tag", [{cd, Repo}]), "\n") ]).
 
-amend_changes() ->
-    exec("git show HEAD --pretty=%s%n%n%b --summary | git commit -F - --amend").
+get_all_version_tags_commits(Repo) ->
+    get_tags_commits(Repo, get_all_version_tags(Repo)).
 
-tag(Ver) ->
-    exec("git tag -f v~s", [semver:to_str(Ver)]),
+get_reachable_versions(Repo) ->
+    Tags = get_all_version_tags(Repo),
+    get_reachable_tags(Repo, Tags).
+
+
+commit(Repo, Msg) ->
+    sh("git commit -m \"~s\"", [Msg], [{cd, Repo}]).
+
+amend_changes(Repo) ->
+    sh("git show HEAD --pretty=%s%n%n%b --summary | git commit -F - --amend", [{cd, Repo}]).
+
+tag(Repo, Ver) ->
+    sh("git tag -f v~s", [semver:to_str(Ver)], [{cd, Repo}]),
     Ver.
 
-log_commits() ->
-    string:tokens(os:cmd("git log --format=\"%H\""), "\n").
+log_commits(Repo) ->
+    string:tokens(oksh("git log --format=\"%H\"", [{cd, Repo}]), "\n").
 
-describe() ->
-    describe_tags().
+describe(Repo) ->
+    describe_tags(Repo).
 
-describe_tags() ->
-    strip(exec("git describe --tags", [], true)).
+describe_tags(Repo) ->
+    strip(oksh("git describe --tags", [{cd, Repo}])).
 
-semver() ->
-    semver:from_git_describe(describe_tags()).
+semver(Repo) ->
+    semver:from_git_describe(describe_tags(Repo)).
 
-diff(A, B) ->
-    diff(A, B, ".").
+diff_names(Repo, A, B) ->
+    diff_names(Repo, A, B, ".").
 
-head() ->
-    strip(exec("git rev-parse HEAD", [], true)).
+head(Repo) ->
+    strip(oksh("git rev-parse HEAD", [{cd, Repo}])).
 
-reset_hard(#semver{} = Ver) ->
-    reset_hard(semver:to_tag(Ver));
-reset_hard(Commit) ->
-    strip(exec("git reset --hard ~s", [Commit])).
+reset_hard(Repo, #semver{} = Ver) ->
+    reset_hard(Repo, semver:to_tag(Ver));
+reset_hard(Repo, Commit) ->
+    strip(oksh("git reset --hard ~s", [Commit], [{cd, Repo}])).
 
 %% =============================================================================
 %%
@@ -107,36 +150,49 @@ change_type(" D") ->
 change_type("??") ->
     untracked.
 
-changed_files(Prefix) ->
-    [ {change_type([A,B]), filename:join(Prefix, F)} || [A,B,_ | F] <- string:tokens(os:cmd("git status --porcelain"), "\n") ].
+status_changed_files(Repo, Prefix) ->
+    [ {change_type([A,B]), filename:join(Prefix, F)}
+      || [A,B,_ | F] <- string:tokens(oksh("git status --porcelain", [{cd, Repo}]), "\n") ].
 
-add_files(Files, Prefix) ->
-    exec("git add ~s", [string:join([filename:join(Prefix, F) || F <- Files], " ")]).
+add_files(Repo, Files, Prefix) ->
+    sh("git add ~s", [string:join([filename:join(Prefix, F) || F <- Files], " ")], [{cd, Repo}]).
 
-get_tags_commits(Tags0) ->
+get_tags_commits(Repo, Tags0) ->
     Tags = [ semver:to_tag(X) || X <- Tags0],
     TagStrs = join(Tags, " "),
-    string:tokens(exec("git rev-parse ~s", [TagStrs], true), "\n").
+    string:tokens(oksh("git rev-parse ~s", [TagStrs], [{cd, Repo}]), "\n").
 
-get_reachable_tags(Tags) ->
-    Commits = log_commits(),
-    get_reachable_tags(Tags, Commits).
+get_reachable_tags(Repo, Tags) ->
+    Commits = log_commits(Repo),
+    get_reachable_tags(Repo, Tags, Commits).
 
-get_reachable_tags(Tags, Commits) ->
-    TagCommits = lists:zip(Tags, get_tags_commits(Tags)),
+get_reachable_tags(Repo, Tags, Commits) ->
+    TagCommits = lists:zip(Tags, get_tags_commits(Repo, Tags)),
     [ T || {T,C} <- TagCommits, lists:member(C, Commits) ].
 
 
-diff(A, B, Prefix) when is_record(A, semver),
-                        is_list(Prefix) ->
-    diff(semver:to_tag(A), B, Prefix);
-diff(A, B, Prefix) when is_record(B, semver),
-                        is_list(Prefix) ->
-    diff(A, semver:to_tag(B), Prefix);
-diff(A, B, Prefix) when is_list(A),
-                        is_list(B),
-                        is_list(Prefix) ->
-    Output = exec("git diff --name-status ~s ~s", [A, B], true),
+diff_names(Repo, A, B, Prefix) when is_list(A),
+                                    is_list(B),
+                                    is_list(Prefix) ->
+    Output = sh("git diff --name-status ~s ~s", [A, B], [{cd, Repo}]),
     [ {change_type([XA,XB]), filename:join(Prefix, F)}
-      || [XA,XB | F] <- string:tokens(Output, "\n") ].
+      || [XA,XB | F] <- string:tokens(Output, "\n") ];
+diff_names(Repo, A, B, Prefix) when is_list(Prefix) ->
+    diff_names(Repo, verstr(A), verstr(B), Prefix).
 
+verstr(A) when is_list(A) ->
+    A;
+verstr(A) when is_record(A, semver) ->
+    semver:to_tag(A).
+
+sh(Cmd, Opts) ->
+    sh:sh(Cmd, [{use_stdout, false}, return_on_error] ++ Opts).
+sh(Cmd, Args, Opts) ->
+    sh:sh(Cmd, Args, [{use_stdout, false}, return_on_error] ++ Opts).
+
+oksh(Cmd, Opts) ->
+    {ok, Rep} = sh(Cmd, Opts),
+    Rep.
+oksh(Cmd, Args, Opts) ->
+    {ok, Rep} = sh(Cmd, Args, Opts),
+    Rep.
