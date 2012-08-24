@@ -43,7 +43,7 @@
 %% =============================================================================
 
 %% @throws {unable_to_clone, Reason :: list()}>
--spec clone(list(), list()) -> ok.
+-spec clone(list(), list()) -> {'ok', string()}.
 clone(RepoURL, RepoPath) ->
     %% sh(fformat("rm -rf \"~s\"", [RepoPath])), % dirty hack
     sh(clone_cmd(RepoURL, RepoPath), []).
@@ -53,7 +53,7 @@ clone_cmd(RepoURL, RepoPath) ->
 
 %% @doc Fetches recent changes from repo.
 %% @throws {unable_to_checkout, Reason}
--spec fetch(list()) -> ok.
+-spec fetch(list()) -> {'ok', string()}.
 fetch(RepoDir) ->
     sh(fetch_cmd(RepoDir), [{cd, RepoDir}]).
 
@@ -62,25 +62,26 @@ fetch_cmd(_RepoDir) ->
 
 %% @doc Tries to checkout to given commit.
 %% @throws {unable_to_checkout, Reason}
--spec checkout(list(), perforator_ci_types:commit_id()) -> ok.
+-spec checkout(list(), string()) -> {'ok', string()}.
 checkout(RepoDir, CommitID) ->
     sh(checkout_cmd(RepoDir, CommitID), [{cd, RepoDir}]).
 
 checkout_cmd(_RepoDir, CommitID) ->
     fformat("git checkout -f ~s", [CommitID]).
 
--spec branch(list()) -> ok.
+-spec branch(list()) -> string().
 branch(Repo) ->
     H = head(Repo),
-    [ N || {N, T, C} <- refs(Repo), T == head, C == H ].
+    hd([ N || {N, T, C} <- refs(Repo), T == head, C == H ]).
 
--spec branches(list()) -> ok.
+-spec branches(list()) -> list(string()).
 branches(Repo) ->
     [ N || {N, T, _C} <- refs(Repo), T == head ].
+-spec branches_commits(list()) -> list({string(), string()}).
 branches_commits(Repo) ->
     [ {N, C} || {N, T, C} <- refs(Repo), T == head ].
 
--spec refs(list()) -> ok.
+-spec refs(list()) -> list({string(), atom(), string()}).
 refs(Repo) ->
     Output = oksh(refs_cmd(Repo), []),
     lists:map(fun(L) ->
@@ -111,16 +112,17 @@ status_changed_files(Repo) ->
 add_files(Repo, Files) ->
     add_files(Repo, Files, ".").
 
--spec remotes(list()) -> list().
+-spec remotes(list()) -> list(string()).
 remotes(Repo) ->
     [ N || {N, T, _C} <- refs(Repo), T == remote ].
--spec remotes_commits(list()) -> list().
+-spec remotes_commits(list()) -> list({string(), string()}).
 remotes_commits(Repo) ->
     [ {N, C} || {N, T, C} <- refs(Repo), T == remote ].
 
--spec tags(list()) -> list().
+-spec tags(list()) -> list(string()).
 tags(Repo) ->
     [ N || {N, T, _C} <- refs(Repo), T == tag ].
+-spec tags_commits(list()) -> list({string(), string()}).
 tags_commits(Repo) ->
     [ {N, C} || {N, T, C} <- refs(Repo), T == tag ].
 
@@ -174,16 +176,18 @@ reset_hard(Repo, Commit) ->
 %%
 %% =============================================================================
 
+change_type("A\t") ->
+    indexed_added;
+change_type("A ") ->
+    indexed_added;
 change_type("M ") ->
+    indexed_modified;
+change_type("M\t") ->
     indexed_modified;
 change_type("D ") ->
     indexed_deleted;
 change_type(" M") ->
     modified;
-change_type("M\t") ->
-    modified;
-change_type("A\t") ->
-    added;
 change_type(" D") ->
     deleted;
 change_type("??") ->
