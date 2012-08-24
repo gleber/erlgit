@@ -1,0 +1,12 @@
+{application, erlgit,
+ [
+  {description, "Convenience Git executable wrapper"},
+  {vsn, "0.3.0"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  erlsemver
+                 ]},
+  {env, []}
+ ]}.

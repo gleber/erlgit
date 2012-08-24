@@ -1,11 +1,31 @@
 -module(git).
 
--compile(export_all).
+-export([is_repo_dirty/0,
+         changed_files/0,
+         log_commits/0,
+         describe/0, semver/0,
+         head/0,
 
--import(util, [exec/1, exec/2, exec/3, strip/1]).
+         get_all_version_tags/0, get_all_version_tags_commits/0,
+         get_reachable_versions/0,
 
--include_lib("oortle_core/include/semver.hrl").
+         diff/2,
 
+         add_files/1,
+         commit/1, amend_changes/0,
+         tag/1,
+         reset_hard/1
+        ]).
+
+-import(git_utils, [exec/1, exec/2, exec/3, strip/1, join/2]).
+
+-include_lib("erlsemver/include/semver.hrl").
+
+%% =============================================================================
+%%
+%% API
+%%
+%% =============================================================================
 
 is_repo_dirty() ->
     case exec("git status --porcelain | egrep -v \"^\\?\\?\"", [], true) of
@@ -15,30 +35,12 @@ is_repo_dirty() ->
             true
     end.
 
-change_type("M ") ->
-    indexed_modified;
-change_type("D ") ->
-    indexed_deleted;
-change_type(" M") ->
-    modified;
-change_type("M\t") ->
-    modified;
-change_type(" D") ->
-    deleted;
-change_type("??") ->
-    untracked.
-
 changed_files() ->
     changed_files(".").
-
-changed_files(Prefix) ->
-    [ {change_type([A,B]), filename:join(Prefix, F)} || [A,B,_ | F] <- string:tokens(os:cmd("git status --porcelain"), "\n") ].
 
 add_files(Files) ->
     add_files(Files, ".").
 
-add_files(Files, Prefix) ->
-    exec("git add ~s", [string:join([filename:join(Prefix, F) || F <- Files], " ")]).
 
 get_all_version_tags() ->
     lists:sort([ semver:from_str(V) || [$v | V ] <- string:tokens(os:cmd("git tag"), "\n") ]).
@@ -46,22 +48,10 @@ get_all_version_tags() ->
 get_all_version_tags_commits() ->
     get_tags_commits(get_all_version_tags()).
 
-get_tags_commits(Tags0) ->
-    Tags = [ ["v", semver:to_str(X)] || X <- Tags0],
-    TagStrs = util:join(Tags, " "),
-    string:tokens(exec("git rev-parse ~s", [TagStrs], true), "\n").
-
 get_reachable_versions() ->
     Tags = get_all_version_tags(),
     get_reachable_tags(Tags).
 
-get_reachable_tags(Tags) ->
-    Commits = log_commits(),
-    get_reachable_tags(Tags, Commits).
-
-get_reachable_tags(Tags, Commits) ->
-    TagCommits = lists:zip(Tags, get_tags_commits(Tags)),
-    [ T || {T,C} <- TagCommits, lists:member(C, Commits) ].
 
 commit(Msg) ->
     exec("git commit -m \"~s\"", [Msg]).
@@ -88,6 +78,53 @@ semver() ->
 diff(A, B) ->
     diff(A, B, ".").
 
+head() ->
+    strip(exec("git rev-parse HEAD", [], true)).
+
+reset_hard(#semver{} = Ver) ->
+    reset_hard(semver:to_tag(Ver));
+reset_hard(Commit) ->
+    strip(exec("git reset --hard ~s", [Commit])).
+
+%% =============================================================================
+%%
+%% Internal
+%%
+%% =============================================================================
+
+change_type("M ") ->
+    indexed_modified;
+change_type("D ") ->
+    indexed_deleted;
+change_type(" M") ->
+    modified;
+change_type("M\t") ->
+    modified;
+change_type(" D") ->
+    deleted;
+change_type("??") ->
+    untracked.
+
+changed_files(Prefix) ->
+    [ {change_type([A,B]), filename:join(Prefix, F)} || [A,B,_ | F] <- string:tokens(os:cmd("git status --porcelain"), "\n") ].
+
+add_files(Files, Prefix) ->
+    exec("git add ~s", [string:join([filename:join(Prefix, F) || F <- Files], " ")]).
+
+get_tags_commits(Tags0) ->
+    Tags = [ semver:to_tag(X) || X <- Tags0],
+    TagStrs = join(Tags, " "),
+    string:tokens(exec("git rev-parse ~s", [TagStrs], true), "\n").
+
+get_reachable_tags(Tags) ->
+    Commits = log_commits(),
+    get_reachable_tags(Tags, Commits).
+
+get_reachable_tags(Tags, Commits) ->
+    TagCommits = lists:zip(Tags, get_tags_commits(Tags)),
+    [ T || {T,C} <- TagCommits, lists:member(C, Commits) ].
+
+
 diff(A, B, Prefix) when is_record(A, semver),
                         is_list(B),
                         is_list(Prefix) ->
@@ -101,10 +138,3 @@ diff(A, B, Prefix) when is_list(A),
                         is_list(Prefix) ->
     [ {change_type([XA,XB]), filename:join(Prefix, F)} || [XA,XB,_ | F] <- string:tokens(exec("git diff --name-status ~s ~s", [A, B], true), "\n") ].
 
-head() ->
-    strip(exec("git rev-parse HEAD", [], true)).
-
-reset_hard(#semver{} = Ver) ->
-    reset_hard(semver:to_tag(Ver));
-reset_hard(Commit) ->
-    strip(exec("git reset --hard ~s", [Commit])).
