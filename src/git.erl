@@ -10,12 +10,17 @@
          describe/1, semver/1,
          head/1,
 
-         get_all_version_tags/1, get_all_version_tags_commits/1,
+         refs/1,
+
+         remotes/1,  remotes_commits/1,
+         tags/1,     tags_commits/1,
+         branches/1, branches_commits/1,
+
+         version_tags/1, version_tags_commits/1,
          get_reachable_versions/1,
 
          diff_names/3,
 
-         remote_branches/1,
          add_files/2,
          commit/2, amend_changes/1,
          tag/2,
@@ -63,11 +68,27 @@ checkout(RepoDir, CommitID) ->
 checkout_cmd(_RepoDir, CommitID) ->
     fformat("git checkout -f ~s", [CommitID]).
 
--spec remote_branches(list()) -> ok.
-remote_branches(Repo) ->
-    sh(remote_branches_cmd(Repo), []).
+-spec branches(list()) -> ok.
+branches(Repo) ->
+    [ N || {N, T, _C} <- refs(Repo), T == head ].
+branches_commits(Repo) ->
+    [ {N, C} || {N, T, C} <- refs(Repo), T == head ].
 
-remote_branches_cmd(Repo) ->
+-spec refs(list()) -> ok.
+refs(Repo) ->
+    Output = oksh(refs_cmd(Repo), []),
+    lists:map(fun(L) ->
+                      [Commit, Ref] = string:tokens(L, "\t "),
+                      {Type, Name} = case string:tokens(Ref, "/") of
+                                         ["refs", T | N] ->
+                                             {T, string:join(N, "/")};
+                                         ["HEAD"] ->
+                                             {"HEAD", "HEAD"}
+                                     end,
+                      {Name, list_to_atom(string:strip(Type, right, $s)), Commit}
+              end, string:tokens(Output, [13,10])).
+
+refs_cmd(Repo) ->
     fformat("git ls-remote ~s", [Repo]).
 
 status_is_dirty(Repo) ->
@@ -84,15 +105,27 @@ status_changed_files(Repo) ->
 add_files(Repo, Files) ->
     add_files(Repo, Files, ".").
 
+-spec remotes(list()) -> list().
+remotes(Repo) ->
+    [ N || {N, T, _C} <- refs(Repo), T == remote ].
+-spec remotes_commits(list()) -> list().
+remotes_commits(Repo) ->
+    [ {N, C} || {N, T, C} <- refs(Repo), T == remote ].
 
-get_all_version_tags(Repo) ->
-    lists:sort([ semver:from_str(V) || [$v | V ] <- string:tokens(oksh("git tag", [{cd, Repo}]), "\n") ]).
+-spec tags(list()) -> list().
+tags(Repo) ->
+    [ N || {N, T, _C} <- refs(Repo), T == tag ].
+tags_commits(Repo) ->
+    [ {N, C} || {N, T, C} <- refs(Repo), T == tag ].
 
-get_all_version_tags_commits(Repo) ->
-    get_tags_commits(Repo, get_all_version_tags(Repo)).
+version_tags(Repo) ->
+    [ semver:from_str(V) || [$v | V ] <- tags(Repo) ].
+
+version_tags_commits(Repo) ->
+    get_commits(Repo, version_tags(Repo)).
 
 get_reachable_versions(Repo) ->
-    Tags = get_all_version_tags(Repo),
+    Tags = version_tags(Repo),
     get_reachable_tags(Repo, Tags).
 
 
@@ -157,17 +190,16 @@ status_changed_files(Repo, Prefix) ->
 add_files(Repo, Files, Prefix) ->
     sh("git add ~s", [string:join([filename:join(Prefix, F) || F <- Files], " ")], [{cd, Repo}]).
 
-get_tags_commits(Repo, Tags0) ->
-    Tags = [ semver:to_tag(X) || X <- Tags0],
-    TagStrs = join(Tags, " "),
-    string:tokens(oksh("git rev-parse ~s", [TagStrs], [{cd, Repo}]), "\n").
+get_commits(Repo, Refs) ->
+    RefStrs = join([ verstr(X) || X <- Refs], " "),
+    lists:zip(Refs, string:tokens(oksh("git rev-parse ~s", [RefStrs], [{cd, Repo}]), "\n")).
 
 get_reachable_tags(Repo, Tags) ->
     Commits = log_commits(Repo),
     get_reachable_tags(Repo, Tags, Commits).
 
 get_reachable_tags(Repo, Tags, Commits) ->
-    TagCommits = lists:zip(Tags, get_tags_commits(Repo, Tags)),
+    TagCommits = lists:zip(Tags, get_commits(Repo, Tags)),
     [ T || {T,C} <- TagCommits, lists:member(C, Commits) ].
 
 
