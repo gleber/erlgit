@@ -1,6 +1,7 @@
 -module(git_utils).
 
 -export([join/2,
+         strip/1,
 
          mkdir/1,
          exec/1,
@@ -8,6 +9,9 @@
          exec/3,
          exec/4
         ]).
+
+strip(Value)->
+    re:replace(re:replace(Value, "^\\s*", ""), "\\s*$", "", [{return, list}]). %"
 
 join([], _) ->
     [];
