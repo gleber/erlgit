@@ -49,6 +49,33 @@ true
 "3825b3cb5e713c5145b4b74445a4d5e6187e567d"
 ```
 
+and it has some support for semantic versioning using erlsemver
+library:
+
+```erlang
+16> rr("deps/erlsemver/include/*").
+[semver]
+17> git:version_tags(Local).
+[#semver{x = 0,y = 3,z = 0,pre = <<>>,build = undefined},
+ #semver{x = 0,y = 3,z = 1,pre = <<>>,build = undefined},
+ #semver{x = 0,y = 3,z = 2,pre = <<>>,build = undefined},
+ #semver{x = 0,y = 5,z = 0,pre = <<>>,build = undefined}]
+18> git:version_tags_commits(Local).
+[{#semver{x = 0,y = 3,z = 0,pre = <<>>,build = undefined},
+  "be3b0ade881666286801ee8b218ecbf29da97558"},
+ {#semver{x = 0,y = 3,z = 1,pre = <<>>,build = undefined},
+  "89f2d81be12f6034db52fd6d71d8a4b96f4ee9de"},
+ {#semver{x = 0,y = 3,z = 2,pre = <<>>,build = undefined},
+  "3dc42981d9e4677654370614888ec3f368421240"},
+ {#semver{x = 0,y = 5,z = 0,pre = <<>>,build = undefined},
+ "097428dda56dec6085747387645d6020f86cfae7"}]
+19> git:tag(Local, semver:inc_z(#semver{x = 0,y = 5,z = 0,pre = <<>>,build = undefined})).
+#semver{x = 0,y = 5,z = 1,pre = <<>>,build = undefined}
+20> lists:last(git:version_tags_commits(Local)).
+{#semver{x = 0,y = 5,z = 1,pre = <<>>,build = undefined},
+ "3825b3cb5e713c5145b4b74445a4d5e6187e567d"}
+```
+
 Author
 ======
 Gleb Peregud <gleber.p@gmail.com> for LivePress Inc.

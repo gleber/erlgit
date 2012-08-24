@@ -45,7 +45,6 @@
 %% @throws {unable_to_clone, Reason :: list()}>
 -spec clone(list(), list()) -> {'ok', string()}.
 clone(RepoURL, RepoPath) ->
-    %% sh(fformat("rm -rf \"~s\"", [RepoPath])), % dirty hack
     sh(clone_cmd(RepoURL, RepoPath), []).
 
 clone_cmd(RepoURL, RepoPath) ->
