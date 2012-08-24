@@ -100,6 +100,8 @@ change_type(" M") ->
     modified;
 change_type("M\t") ->
     modified;
+change_type("A\t") ->
+    added;
 change_type(" D") ->
     deleted;
 change_type("??") ->
@@ -126,11 +128,9 @@ get_reachable_tags(Tags, Commits) ->
 
 
 diff(A, B, Prefix) when is_record(A, semver),
-                        is_list(B),
                         is_list(Prefix) ->
     diff(semver:to_tag(A), B, Prefix);
-diff(A, B, Prefix) when is_list(A),
-                        is_record(B, semver),
+diff(A, B, Prefix) when is_record(B, semver),
                         is_list(Prefix) ->
     diff(A, semver:to_tag(B), Prefix);
 diff(A, B, Prefix) when is_list(A),
