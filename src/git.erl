@@ -15,6 +15,7 @@
          remotes/1,  remotes_commits/1,
          tags/1,     tags_commits/1,
          branches/1, branches_commits/1,
+         branch/1,
 
          version_tags/1, version_tags_commits/1,
          get_reachable_versions/1,
@@ -67,6 +68,11 @@ checkout(RepoDir, CommitID) ->
 
 checkout_cmd(_RepoDir, CommitID) ->
     fformat("git checkout -f ~s", [CommitID]).
+
+-spec branch(list()) -> ok.
+branch(Repo) ->
+    H = head(Repo),
+    [ N || {N, T, C} <- refs(Repo), T == head, C == H ].
 
 -spec branches(list()) -> ok.
 branches(Repo) ->
