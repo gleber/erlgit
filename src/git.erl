@@ -136,5 +136,7 @@ diff(A, B, Prefix) when is_record(B, semver),
 diff(A, B, Prefix) when is_list(A),
                         is_list(B),
                         is_list(Prefix) ->
-    [ {change_type([XA,XB]), filename:join(Prefix, F)} || [XA,XB,_ | F] <- string:tokens(exec("git diff --name-status ~s ~s", [A, B], true), "\n") ].
+    Output = exec("git diff --name-status ~s ~s", [A, B], true),
+    [ {change_type([XA,XB]), filename:join(Prefix, F)}
+      || [XA,XB | F] <- string:tokens(Output, "\n") ].
 
