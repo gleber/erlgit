@@ -10,6 +10,7 @@ Usage
 
 Example of basic usage:
 ```erlang
+$ make sh
 1> Local = "/tmp/erlgit".
 "/tmp/erlgit"
 2> git:clone("http://github.com/gleber/erlgit.git", Local).
@@ -74,6 +75,26 @@ library:
 20> lists:last(git:version_tags_commits(Local)).
 {#semver{x = 0,y = 5,z = 1,pre = <<>>,build = undefined},
  "3825b3cb5e713c5145b4b74445a4d5e6187e567d"}
+```
+
+and convenience function for fetching specific version of source code:
+
+```erlang
+21> git:download("https://github.com/gleber/erlgit.git", "/tmp/erlgit", {tag, "v0.7.0"}).
+{ok,[]}
+22> git:refs("/tmp/erlgit").
+[{"HEAD",'HEAD',"172e570f39020637d1e98326c746ad776242417f"},
+ {"master",head,"172e570f39020637d1e98326c746ad776242417f"},
+ {"origin/HEAD",remote, "172e570f39020637d1e98326c746ad776242417f"},
+ {"origin/master",remote, "172e570f39020637d1e98326c746ad776242417f"},
+ {"v0.5.0",tag,"da21ef41b800d1fd0c08d7d8f05b4489a0c3d2a8"},
+ {"v0.7.0",tag,"172e570f39020637d1e98326c746ad776242417f"}]
+23> git:branch("/tmp/erlgit").
+detached
+24> git:checkout("/tmp/erlgit", "master").
+{ok,[]}
+25> git:branch("/tmp/erlgit").
+{ok,"master"}
 ```
 
 Author
