@@ -6,6 +6,7 @@
          fetch/1,
          checkout/2, checkout/3,
 
+         status_is_detached/1,
          status_is_dirty/1,
          status_changed_files/1,
          log_commits/1,
@@ -144,6 +145,15 @@ refs(Repo) ->
 
 refs_cmd(Repo) ->
     fformat("git ls-remote ~s", [Repo]).
+
+-spec status_is_detached(dir()) -> boolean().
+status_is_detached(Repo) ->
+    case strip(oksh("git rev-parse --symbolic-full-name --abbrev-ref HEAD", [{cd, Repo}])) of
+        "HEAD" ->
+            true;
+        _ ->
+            false
+    end.
 
 -spec status_is_dirty(dir()) -> boolean().
 status_is_dirty(Repo) ->
