@@ -90,10 +90,16 @@ checkout(RepoDir, CommitID, Opts) ->
 checkout_cmd(_RepoDir, CommitID, Opts) ->
     fformat("git checkout ~s ~s", [opts(Opts), CommitID]).
 
--spec branch(list()) -> string().
+-spec branch(repo()) -> {'ok', branch()} | 'detached'.
 branch(Repo) ->
-    H = head(Repo),
-    hd([ N || {N, T, C} <- refs(Repo), T == head, C == H ]).
+    Refs = refs(Repo),
+    {value, {"HEAD", 'HEAD', H}, Refs2} = lists:keytake('HEAD', 2, Refs),
+    case [ N || {N, T, C} <- Refs2, T == head, C == H ] of
+        [B] ->
+            {ok, B};
+        [] ->
+            detached
+    end.
 
 -spec branches(repo()) -> [branch()].
 branches(Repo) ->
