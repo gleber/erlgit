@@ -1,6 +1,8 @@
 -module(git).
 
--export([clone/2, clone/3,
+-export([download/2, download/3,
+
+         clone/2, clone/3,
          fetch/1,
          checkout/2, checkout/3,
 
@@ -42,6 +44,7 @@
 -type cid()    :: string().
 -type remote() :: string().
 -type ref()    :: head() | branch() | tag() | remote() | cid().
+-type lref()   :: {'branch', branch()} | {'tag', tag()} | ref().
 -type ref_type() :: 'head' | 'tag' | 'remote' | 'cid' | 'HEAD'.
 
 -type change_type() :: indexed_added | indexed_modified | indexed_deleted | modified | deleted | untracked.
@@ -56,6 +59,23 @@
 %% API
 %%
 %% =============================================================================
+
+-spec download(url(), dir()) -> {'ok', string()} | {'error', term()}.
+download(Url, Dir) ->
+    clone(Url, Dir).
+
+-spec download(url(), dir(), lref()) -> {'ok', string()} | {'error', term()}.
+download(Url, Dir, "") ->
+    download(Url, Dir, {branch, "HEAD"});
+download(Url, Dir, {branch, Branch}) ->
+    {ok, _} = clone(Url, Dir, [no_checkout]),
+    checkout(Dir, fformat("origin/~s", Branch));
+download(Url, Dir, {tag, Tag}) ->
+    {ok, _} = clone(Url, Dir, [no_checkout]),
+    checkout(Dir, Tag);
+download(Url, Dir, Rev) ->
+    {ok, _} = clone(Url, Dir, [no_checkout]),
+    checkout(Dir, Rev).
 
 %% @throws {unable_to_clone, Reason :: list()}>
 -spec clone(url(), dir()) -> {'ok', string()} | {'error', term()}.
