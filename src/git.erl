@@ -111,14 +111,15 @@ checkout(RepoDir, CommitID, Opts) ->
 checkout_cmd(_RepoDir, CommitID, Opts) ->
     fformat("git checkout ~s ~s", [opts(Opts), CommitID]).
 
--spec branch(repo()) -> {'ok', branch()} | 'detached'.
+-spec branch(dir()) -> {'ok', branch()} | 'detached'.
 branch(Repo) ->
-    Refs = refs(Repo),
-    {value, {"HEAD", 'HEAD', H}, Refs2} = lists:keytake('HEAD', 2, Refs),
-    case [ N || {N, T, C} <- Refs2, T == head, C == H ] of
-        [B] ->
+    case status_is_detached(Repo) of
+        false ->
+            Refs = refs(Repo),
+            {value, {"HEAD", 'HEAD', H}, Refs2} = lists:keytake('HEAD', 2, Refs),
+            [B] = [ N || {N, T, C} <- Refs2, T == head, C == H ],
             {ok, B};
-        [] ->
+        true ->
             detached
     end.
 
