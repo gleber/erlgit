@@ -1,8 +1,8 @@
 -module(git).
 
--export([clone/2,
+-export([clone/2, clone/3,
          fetch/1,
-         checkout/2,
+         checkout/2, checkout/3,
 
          status_is_dirty/1,
          status_changed_files/1,
@@ -28,9 +28,13 @@
          reset_hard/2
         ]).
 
--export([clone_cmd/2,
+-export([clone_cmd/3,
          fetch_cmd/1,
-         checkout_cmd/2]).
+         checkout_cmd/3]).
+
+-type option() :: ['no_checkout', 'quite', 'force'].
+-type url() :: string().
+-type dir() :: file:filename().
 
 -import(git_utils, [fformat/2, strip/1, join/2]).
 
@@ -43,16 +47,20 @@
 %% =============================================================================
 
 %% @throws {unable_to_clone, Reason :: list()}>
--spec clone(list(), list()) -> {'ok', string()}.
+-spec clone(url(), dir()) -> {'ok', string()} | {'error', term()}.
 clone(RepoURL, RepoPath) ->
-    sh(clone_cmd(RepoURL, RepoPath), []).
+    clone(RepoURL, RepoPath, []).
+-spec clone(url(), dir(), [option()]) -> {'ok', string()} | {'error', term()}.
+clone(RepoURL, RepoPath, Opts) ->
+    ok = filelib:ensure_dir(RepoPath),
+    sh(clone_cmd(RepoURL, RepoPath, Opts), []).
 
-clone_cmd(RepoURL, RepoPath) ->
-    fformat("git clone \"~s\" \"~s\"", [RepoURL, RepoPath]).
+clone_cmd(RepoURL, RepoPath, Opts) ->
+    fformat("git clone ~s \"~s\" \"~s\"", [opts(Opts), RepoURL, RepoPath]).
 
 %% @doc Fetches recent changes from repo.
 %% @throws {unable_to_checkout, Reason}
--spec fetch(list()) -> {'ok', string()}.
+-spec fetch(dir()) -> {'ok', string()} | {'error', term()}.
 fetch(RepoDir) ->
     sh(fetch_cmd(RepoDir), [{cd, RepoDir}]).
 
@@ -61,12 +69,15 @@ fetch_cmd(_RepoDir) ->
 
 %% @doc Tries to checkout to given commit.
 %% @throws {unable_to_checkout, Reason}
--spec checkout(list(), string()) -> {'ok', string()}.
+-spec checkout(dir(), ref()) -> {'ok', string()} | {'error', term()}.
 checkout(RepoDir, CommitID) ->
-    sh(checkout_cmd(RepoDir, CommitID), [{cd, RepoDir}]).
+    checkout(RepoDir, CommitID, [quite, force]).
+-spec checkout(dir(), ref(), [option()]) -> {'ok', string()} | {'error', term()}.
+checkout(RepoDir, CommitID, Opts) ->
+    sh(checkout_cmd(RepoDir, CommitID, Opts), [{cd, RepoDir}]).
 
-checkout_cmd(_RepoDir, CommitID) ->
-    fformat("git checkout -f ~s", [CommitID]).
+checkout_cmd(_RepoDir, CommitID, Opts) ->
+    fformat("git checkout ~s ~s", [opts(Opts), CommitID]).
 
 -spec branch(list()) -> string().
 branch(Repo) ->
@@ -174,6 +185,14 @@ reset_hard(Repo, Commit) ->
 %% Internal
 %%
 %% =============================================================================
+opts(Opts) ->
+    lists:flatten(join(lists:map(fun opt/1, Opts), " ")).
+opt(no_checkout) ->
+    "-n";
+opt(quite) ->
+    "-q";
+opt(force) ->
+    "-f".
 
 change_type("A\t") ->
     indexed_added;
