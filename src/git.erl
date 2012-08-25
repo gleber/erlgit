@@ -147,12 +147,9 @@ refs_cmd(Repo) ->
 
 -spec status_is_dirty(dir()) -> boolean().
 status_is_dirty(Repo) ->
-    case sh("git status --porcelain | egrep -v \"^\\?\\?\"", [{cd, Repo}]) of
-        "" ->
-            false;
-        _ ->
-            true
-    end.
+    not lists:all(fun({untracked, _}) -> true;
+                     (_) -> false
+                  end, status_changed_files(Repo)).
 
 -spec status_changed_files(dir()) -> [{change_type(), file:filename()}].
 status_changed_files(Repo) ->
