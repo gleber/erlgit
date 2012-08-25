@@ -32,9 +32,20 @@
          fetch_cmd/1,
          checkout_cmd/3]).
 
--type option() :: ['no_checkout', 'quite', 'force'].
--type url() :: string().
--type dir() :: file:filename().
+-type option() :: 'no_checkout' | 'quite' | 'force'.
+-type repo()   :: url() | dir().
+-type url()    :: string().
+-type dir()    :: file:filename().
+-type head()   :: string().
+-type branch() :: string().
+-type tag()    :: string().
+-type cid()    :: string().
+-type remote() :: string().
+-type ref()    :: head() | branch() | tag() | remote() | cid().
+-type ref_type() :: 'head' | 'tag' | 'remote' | 'cid' | 'HEAD'.
+
+-type change_type() :: indexed_added | indexed_modified | indexed_deleted | modified | deleted | untracked.
+
 
 -import(git_utils, [fformat/2, strip/1, join/2]).
 
@@ -84,14 +95,14 @@ branch(Repo) ->
     H = head(Repo),
     hd([ N || {N, T, C} <- refs(Repo), T == head, C == H ]).
 
--spec branches(list()) -> list(string()).
+-spec branches(repo()) -> [branch()].
 branches(Repo) ->
     [ N || {N, T, _C} <- refs(Repo), T == head ].
--spec branches_commits(list()) -> list({string(), string()}).
+-spec branches_commits(repo()) -> [{branch(), cid()}].
 branches_commits(Repo) ->
     [ {N, C} || {N, T, C} <- refs(Repo), T == head ].
 
--spec refs(list()) -> list({string(), atom(), string()}).
+-spec refs(repo()) -> [{ref(), ref_type(), cid()}].
 refs(Repo) ->
     Output = oksh(refs_cmd(Repo), []),
     lists:map(fun(L) ->
@@ -108,6 +119,7 @@ refs(Repo) ->
 refs_cmd(Repo) ->
     fformat("git ls-remote ~s", [Repo]).
 
+-spec status_is_dirty(dir()) -> boolean().
 status_is_dirty(Repo) ->
     case sh("git status --porcelain | egrep -v \"^\\?\\?\"", [{cd, Repo}]) of
         "" ->
@@ -116,32 +128,37 @@ status_is_dirty(Repo) ->
             true
     end.
 
+-spec status_changed_files(dir()) -> [{change_type(), file:filename()}].
 status_changed_files(Repo) ->
     status_changed_files(Repo, ".").
 
+-spec add_files(dir(), [file:filename()]) -> {'ok', string()} | {'error', term()}.
 add_files(Repo, Files) ->
     add_files(Repo, Files, ".").
 
--spec remotes(list()) -> list(string()).
+-spec remotes(repo()) -> [remote()].
 remotes(Repo) ->
     [ N || {N, T, _C} <- refs(Repo), T == remote ].
--spec remotes_commits(list()) -> list({string(), string()}).
+-spec remotes_commits(repo()) -> [{remote(), cid()}].
 remotes_commits(Repo) ->
     [ {N, C} || {N, T, C} <- refs(Repo), T == remote ].
 
--spec tags(list()) -> list(string()).
+-spec tags(repo()) -> [tag()].
 tags(Repo) ->
     [ N || {N, T, _C} <- refs(Repo), T == tag ].
--spec tags_commits(list()) -> list({string(), string()}).
+-spec tags_commits(repo()) -> [{tag(), cid()}].
 tags_commits(Repo) ->
     [ {N, C} || {N, T, C} <- refs(Repo), T == tag ].
 
+-spec version_tags(repo()) -> [semver:semver()].
 version_tags(Repo) ->
     [ semver:from_str(V) || [$v | V ] <- tags(Repo) ].
 
+-spec version_tags_commits(repo()) -> [{semver:semver(), cid()}].
 version_tags_commits(Repo) ->
     get_commits(Repo, version_tags(Repo)).
 
+-spec get_reachable_versions(repo()) -> [semver:semver()].
 get_reachable_versions(Repo) ->
     Tags = version_tags(Repo),
     get_reachable_tags(Repo, Tags).
@@ -193,7 +210,7 @@ opt(quite) ->
     "-q";
 opt(force) ->
     "-f".
-
+-spec change_type(string()) -> change_type().
 change_type("A\t") ->
     indexed_added;
 change_type("A ") ->
