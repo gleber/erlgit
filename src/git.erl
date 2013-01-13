@@ -133,16 +133,20 @@ branches_commits(Repo) ->
 -spec refs(repo()) -> [{ref(), ref_type(), cid()}].
 refs(Repo) ->
     Output = oksh(refs_cmd(Repo), []),
-    lists:map(fun(L) ->
-                      [Commit, Ref] = string:tokens(L, "\t "),
-                      {Type, Name} = case string:tokens(Ref, "/") of
-                                         ["refs", T | N] ->
-                                             {T, string:join(N, "/")};
-                                         ["HEAD"] ->
-                                             {"HEAD", "HEAD"}
-                                     end,
-                      {Name, list_to_atom(string:strip(Type, right, $s)), Commit}
-              end, string:tokens(Output, [13,10])).
+    lists:flatmap(fun(L) ->
+                          case string:tokens(L, "\t ") of
+                              ["WARNING:"|_] ->
+                                  [];
+                              [Commit, Ref] ->
+                                  {Type, Name} = case string:tokens(Ref, "/") of
+                                                     ["refs", T | N] ->
+                                                         {T, string:join(N, "/")};
+                                                     ["HEAD"] ->
+                                                         {"HEAD", "HEAD"}
+                                                 end,
+                                  [{Name, list_to_atom(string:strip(Type, right, $s)), Commit}]
+                          end
+                  end, string:tokens(Output, [13,10])).
 
 refs_cmd(Repo) ->
     fformat("git ls-remote ~s", [Repo]).
