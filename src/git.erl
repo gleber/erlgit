@@ -135,6 +135,8 @@ refs(Repo) ->
     Output = oksh(refs_cmd(Repo), []),
     lists:flatmap(fun(L) ->
                           case string:tokens(L, "\t ") of
+                              ["DEBUG:"++_|_] ->
+                                  [];
                               ["WARNING:"|_] ->
                                   [];
                               [Commit, Ref] ->
