@@ -5,6 +5,7 @@
          clone/2, clone/3,
          fetch/1,
          checkout/2, checkout/3,
+         remote/1,
 
          status_is_detached/1,
          status_is_dirty/1,
@@ -110,6 +111,21 @@ checkout(RepoDir, CommitID, Opts) ->
 
 checkout_cmd(_RepoDir, CommitID, Opts) ->
     fformat("git checkout ~s ~s", [opts(Opts), CommitID]).
+
+%% @doc List of remote entities: git remote -v
+%%
+-spec(remote/1 :: (dir()) -> {ok, list()}).
+
+remote(Repo) ->
+     lists:usort(
+          [string_to_remote(X) || 
+               X <- string:tokens(oksh("git remote -v", [{cd, Repo}]), "\n")]
+     ).
+
+string_to_remote(X) ->
+     [Name, Url, _] = string:tokens(X, "\t "),
+     {Name, Url}.
+
 
 -spec branch(dir()) -> {'ok', branch()} | 'detached'.
 branch(Repo) ->
