@@ -2,10 +2,12 @@
 
 -export([download/2, download/3,
 
+         init/1,
          clone/2, clone/3,
          fetch/1,
          checkout/2, checkout/3,
          remote/1,
+         remote/2, remote/3,
 
          status_is_detached/1,
          status_is_dirty/1,
@@ -79,6 +81,17 @@ download(Url, Dir, Rev) ->
     {ok, _} = clone(Url, Dir, [no_checkout]),
     checkout(Dir, Rev).
 
+%%
+%% init empty project
+-spec init(dir()) -> ok | {error, any()}.
+
+init(RepoDir) ->
+    ok = filelib:ensure_dir(filename:join([RepoDir, ".git"])),
+    sh(init_cmd(RepoDir), [{cd, RepoDir}]).
+
+init_cmd(_RepoDir) ->
+    "git init".
+
 %% @throws {unable_to_clone, Reason :: list()}>
 -spec clone(url(), dir()) -> {'ok', string()} | {'error', term()}.
 clone(RepoURL, RepoPath) ->
@@ -125,6 +138,20 @@ remote(Repo) ->
 string_to_remote(X) ->
      [Name, Url, _] = string:tokens(X, "\t "),
      {Name, Url}.
+
+%%
+%% add git remote to existed repository
+-spec(remote/2 :: (dir(), url()) -> ok | {error, any()}).
+-spec(remote/3 :: (dir(), list(), url()) -> ok | {error, any()}).
+
+remote(RepoDir, RepoURL) ->
+    remote(RepoDir, "origin", RepoURL).
+
+remote(RepoDir, RemoteName, RepoURL) ->
+   sh(remote_add_cmd(RemoteName, RepoURL), [{cd, RepoDir}]).
+
+remote_add_cmd(RemoteName, RepoURL) ->
+    fformat("git remote add -t \\* -f ~s ~s", [RemoteName, RepoURL]).
 
 
 -spec branch(dir()) -> {'ok', branch()} | 'detached'.
