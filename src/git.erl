@@ -7,6 +7,7 @@
          fetch/1,
          checkout/2, checkout/3,
          remote/1,
+         remote/2, remote/3,
 
          status_is_detached/1,
          status_is_dirty/1,
@@ -137,6 +138,20 @@ remote(Repo) ->
 string_to_remote(X) ->
      [Name, Url, _] = string:tokens(X, "\t "),
      {Name, Url}.
+
+%%
+%% add git remote to existed repository
+-spec(remote/2 :: (dir(), url()) -> ok | {error, any()}).
+-spec(remote/3 :: (dir(), list(), url()) -> ok | {error, any()}).
+
+remote(RepoDir, RepoURL) ->
+    remote(RepoDir, "origin", RepoURL).
+
+remote(RepoDir, RemoteName, RepoURL) ->
+   sh(remote_add_cmd(RemoteName, RepoURL), [{cd, RepoDir}]).
+
+remote_add_cmd(RemoteName, RepoURL) ->
+    fformat("git remote add -t \\* -f ~s ~s", [RemoteName, RepoURL]).
 
 
 -spec branch(dir()) -> {'ok', branch()} | 'detached'.
