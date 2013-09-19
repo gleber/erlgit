@@ -2,6 +2,7 @@
 
 -export([download/2, download/3,
 
+         init/1,
          clone/2, clone/3,
          fetch/1,
          checkout/2, checkout/3,
@@ -78,6 +79,17 @@ download(Url, Dir, {tag, Tag}) ->
 download(Url, Dir, Rev) ->
     {ok, _} = clone(Url, Dir, [no_checkout]),
     checkout(Dir, Rev).
+
+%%
+%% init empty project
+-spec init(dir()) -> ok | {error, any()}.
+
+init(RepoDir) ->
+    ok = filelib:ensure_dir(filename:join([RepoDir, ".git"])),
+    sh(init_cmd(RepoDir), [{cd, RepoDir}]).
+
+init_cmd(_RepoDir) ->
+    "git init".
 
 %% @throws {unable_to_clone, Reason :: list()}>
 -spec clone(url(), dir()) -> {'ok', string()} | {'error', term()}.
