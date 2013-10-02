@@ -6,7 +6,8 @@
   {applications, [
                   kernel,
                   stdlib,
-                  erlsemver
+                  erlsemver,
+                  sh
                  ]},
   {env, []}
  ]}.
