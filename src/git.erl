@@ -306,14 +306,24 @@ change_type("D ") ->
     indexed_deleted;
 change_type(" M") ->
     modified;
+change_type("MM") ->
+    {several, [indexed_modified, modified]};
 change_type(" D") ->
     deleted;
 change_type("??") ->
     untracked.
 
 status_changed_files(Repo, Prefix) ->
-    [ {change_type([A,B]), filename:join(Prefix, F)}
-      || [A,B,_ | F] <- string:tokens(oksh("git status --porcelain", [{cd, Repo}]), "\n") ].
+    Status = string:tokens(oksh("git status --porcelain", [{cd, Repo}]), "\n"),
+    Changed = [ construct_change(change_type([A,B]), filename:join(Prefix, F)) ||
+                [A,B,_ | F] <- Status ],
+    lists:flatten(Changed).
+
+construct_change({several, ChangeTypes}, Filename) ->
+    [ construct_change(ChangeType, Filename) || ChangeType <- ChangeTypes ];
+construct_change(ChangeType, Filename) ->
+    {ChangeType, Filename}.
+
 
 add_files(Repo, Files, Prefix) ->
     sh("git add ~s", [string:join([filename:join(Prefix, F) || F <- Files], " ")], [{cd, Repo}]).
