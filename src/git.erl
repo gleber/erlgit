@@ -160,8 +160,8 @@ branch(Repo) ->
         false ->
             Refs = refs(Repo),
             {value, {"HEAD", 'HEAD', H}, Refs2} = lists:keytake('HEAD', 2, Refs),
-            [B] = [ N || {N, T, C} <- Refs2, T == head, C == H ],
-            {ok, B};
+            B = [ N || {N, T, C} <- Refs2, T == head, C == H ],
+            {ok, string:join(B, "; ")};
         true ->
             detached
     end.
