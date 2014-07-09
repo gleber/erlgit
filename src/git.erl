@@ -161,7 +161,7 @@ branch(Repo) ->
             Refs = refs(Repo),
             {value, {"HEAD", 'HEAD', H}, Refs2} = lists:keytake('HEAD', 2, Refs),
             B = [ N || {N, T, C} <- Refs2, T == head, C == H ],
-            {ok, list_join(B, "; ")};
+            {ok, string:join(B, "; ")};
         true ->
             detached
     end.
@@ -366,7 +366,3 @@ oksh(Cmd, Opts) ->
 oksh(Cmd, Args, Opts) ->
     {ok, Rep} = sh(Cmd, Args, Opts),
     Rep.
-
-list_join([H], _Separator) -> H;
-list_join([H | T], Separator) ->
-        [H | [[Separator, S] || S <- T]].
