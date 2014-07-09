@@ -158,8 +158,8 @@ remote_add_cmd(RemoteName, RepoURL) ->
 branch(Repo) ->
     case status_is_detached(Repo) of
         false ->
-            {ok, B} = sh("git rev-parse --abbrev-ref HEAD", [{cd, Repo}]),
-            {ok, B--"\n"};
+            B = strip(oksh("git rev-parse --abbrev-ref HEAD", [{cd, Repo}])),
+            {ok, B};
         true ->
             detached
     end.
