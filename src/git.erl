@@ -56,7 +56,7 @@
 
 -import(git_utils, [fformat/2, strip/1, join/2]).
 
--include_lib("erlsemver/include/semver.hrl").
+-include_lib("../deps/erlsemver/include/semver.hrl").
 
 %% =============================================================================
 %%
@@ -158,10 +158,8 @@ remote_add_cmd(RemoteName, RepoURL) ->
 branch(Repo) ->
     case status_is_detached(Repo) of
         false ->
-            Refs = refs(Repo),
-            {value, {"HEAD", 'HEAD', H}, Refs2} = lists:keytake('HEAD', 2, Refs),
-            B = [ N || {N, T, C} <- Refs2, T == head, C == H ],
-            {ok, string:join(B, "; ")};
+            {ok, B} = sh("git rev-parse --abbrev-ref HEAD", [{cd, Repo}]),
+            {ok, B--"\n"};
         true ->
             detached
     end.
