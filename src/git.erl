@@ -56,7 +56,7 @@
 
 -import(git_utils, [fformat/2, strip/1, join/2]).
 
--include_lib("../deps/erlsemver/include/semver.hrl").
+-include_lib("erlsemver/include/semver.hrl").
 
 %% =============================================================================
 %%
