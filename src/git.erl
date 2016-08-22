@@ -127,7 +127,7 @@ checkout_cmd(_RepoDir, CommitID, Opts) ->
 
 %% @doc List of remote entities: git remote -v
 %%
--spec(remote/1 :: (dir()) -> {ok, list()}).
+-spec remote(dir()) -> {ok, list()}.
 
 remote(Repo) ->
      lists:usort(
@@ -141,8 +141,8 @@ string_to_remote(X) ->
 
 %%
 %% add git remote to existed repository
--spec(remote/2 :: (dir(), url()) -> ok | {error, any()}).
--spec(remote/3 :: (dir(), list(), url()) -> ok | {error, any()}).
+-spec remote(dir(), url()) -> ok | {error, any()}.
+-spec remote(dir(), list(), url()) -> ok | {error, any()}.
 
 remote(RepoDir, RepoURL) ->
     remote(RepoDir, "origin", RepoURL).
